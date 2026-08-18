@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>حساب طلبات العساكر</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12161c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="طلبات العساكر">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#12161c;
+    --panel:#1a2028;
+    --panel-alt:#20272f;
+    --border:#2b333d;
+    --border-light:#3a4552;
+    --amber:#c68a3f;
+    --amber-soft:#c68a3f22;
+    --olive:#6b7d54;
+    --olive-soft:#6b7d5433;
+    --red:#b6543f;
+    --red-soft:#b6543f22;
+    --text:#eae6db;
+    --text-mute:#93a0ac;
+    --text-faint:#5f6b78;
+    --f-display:'Cairo', sans-serif;
+    --f-body:'Tajawal', sans-serif;
+    --f-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--f-body);
+    padding:22px 16px 60px;
+    padding-top:calc(22px + env(safe-area-inset-top));
+    padding-bottom:calc(60px + env(safe-area-inset-bottom));
+    min-height:100vh;
+  }
+  .wrap{max-width:520px; margin:0 auto;}
+
+  .header{margin-bottom:18px;}
+  .header .title{font-family:var(--f-display); font-weight:900; font-size:22px; color:var(--amber); letter-spacing:0.3px;}
+  .header .subtitle{font-family:var(--f-body); font-size:13px; color:var(--text-faint); margin-top:2px;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;}
+
+  .panel-toggle{
+    width:100%; display:flex; justify-content:space-between; align-items:center;
+    background:transparent; border:none; cursor:pointer; padding:0; color:var(--text);
+  }
+  .panel-toggle .label{font-family:var(--f-display); font-size:16px; font-weight:800; color:var(--text);}
+  .panel-toggle .count{font-family:var(--f-mono); color:var(--text-faint); font-weight:400; font-size:13px;}
+  .panel-toggle .chevron{color:var(--text-mute); font-size:18px;}
+
+  .panel-body{margin-top:14px;}
+  .panel-body.hidden{display:none;}
+
+  .row{display:flex; gap:8px; margin-bottom:12px;}
+  input, select{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:10px 12px; font-size:14px; width:100%; outline:none;
+    font-family:var(--f-body);
+  }
+  input:focus{border-color:var(--amber);}
+  input[type=number]{font-family:var(--f-mono);}
+
+  .btn{border:none; border-radius:10px; cursor:pointer; font-family:var(--f-display); font-weight:800;}
+  .btn-olive{background:var(--olive); color:#0e150d; padding:0 18px; font-size:14px; white-space:nowrap;}
+  .btn-amber{background:var(--amber); color:#1c1204; padding:8px 16px; font-size:13.5px;}
+  .btn-icon{background:transparent; border:none; cursor:pointer; font-size:15px; padding:4px 6px; line-height:1; font-family:var(--f-body);}
+
+  .empty-msg{color:var(--text-faint); font-family:var(--f-body); font-size:13.5px; text-align:center; padding:14px 0;}
+
+  .soldier-row{
+    display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:10px;
+    background:var(--panel-alt); border:1px solid var(--border); margin-bottom:6px;
+  }
+  .soldier-row .name{flex:1; font-family:var(--f-body); font-size:14.5px; color:var(--text); font-weight:600;}
+  .soldier-row input{flex:1; padding:7px 10px; border-radius:8px; border:1px solid var(--amber); background:var(--panel);}
+
+  .orders-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+
+  .order-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:14px; margin-bottom:12px;
+  }
+  .order-card.settled{opacity:0.6; border-color:var(--olive);}
+  .order-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .order-name{font-family:var(--f-display); font-size:16px; font-weight:800; color:var(--amber);}
+  .order-actions{display:flex; gap:6px;}
+  .btn-settle{
+    font-size:11.5px; font-family:var(--f-body); font-weight:700; border-radius:8px;
+    padding:6px 10px; cursor:pointer; white-space:nowrap; border:1px solid var(--border);
+    background:transparent; color:var(--text-faint);
+  }
+  .btn-settle.done{background:var(--olive-soft); color:var(--olive); border-color:var(--olive);}
+
+  .field{margin-bottom:8px;}
+  .field label{font-family:var(--f-body); font-size:11.5px; color:var(--text-faint); display:block; margin-bottom:4px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;}
+
+  .chip{
+    text-align:center; padding:8px; border-radius:9px; font-family:var(--f-body);
+    font-size:13.5px; font-weight:700;
+  }
+  .chip.pos{background:var(--olive-soft); color:var(--olive); border:1px solid var(--olive);}
+  .chip.neg{background:var(--red-soft); color:var(--red); border:1px solid var(--red);}
+  .chip.zero{background:var(--panel-alt); color:var(--text-faint); border:1px solid var(--border);}
+
+  .summary-title{font-family:var(--f-display); font-size:16px; font-weight:800; color:var(--text); margin-bottom:12px;}
+  .summary-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 2px; border-bottom:1px dashed var(--border); font-size:13.5px; color:var(--text-mute);
+  }
+  .summary-row .val{font-family:var(--f-mono); font-size:15px; font-weight:700; color:var(--text);}
+
+  .btn-finish{
+    width:100%; margin-top:10px; padding:13px; border-radius:10px; border:none;
+    background:var(--amber); color:#1c1204; font-family:var(--f-display); font-weight:800;
+    font-size:15px; cursor:pointer; transition:background 0.15s;
+  }
+  .btn-finish.armed{background:var(--red); color:#fff;}
+
+  .footer-note{text-align:center; color:var(--text-faint); font-family:var(--f-mono); font-size:11px; margin-top:20px;}
+
+  /* Picker sheet */
+  .sheet-overlay{
+    position:fixed; inset:0; background:#00000099; z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  .sheet-overlay.hidden{display:none;}
+  .sheet{
+    background:var(--panel); border-top:1px solid var(--border-light);
+    border-radius:18px 18px 0 0; width:100%; max-width:480px;
+    max-height:70vh; overflow-y:auto; padding:18px 16px 28px;
+    box-shadow:0 -8px 30px #00000066;
+  }
+  .sheet-handle{width:40px; height:4px; background:var(--border-light); border-radius:4px; margin:0 auto 14px;}
+  .sheet-title{font-family:var(--f-display); font-weight:700; font-size:16px; color:var(--text); margin-bottom:12px; text-align:center;}
+  .sheet-option{
+    width:100%; text-align:right; padding:12px 14px; margin-bottom:6px;
+    border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text);
+    font-family:var(--f-body); font-size:15px; font-weight:600; cursor:pointer; display:block;
+  }
+
+  .install-banner{
+    display:none; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--amber-soft); border:1px solid var(--amber); border-radius:12px;
+    padding:10px 12px; margin-bottom:16px; font-family:var(--f-body); font-size:13px; color:var(--text);
+  }
+  .install-banner.show{display:flex;}
+  .install-banner button{background:var(--amber); color:#1c1204; border:none; border-radius:8px; padding:7px 12px; font-family:var(--f-display); font-weight:800; font-size:12.5px; cursor:pointer; white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="title">حساب طلبات الأكل</div>
+    <div class="subtitle">تتبّع طلبات وحسابات العساكر مع الديلفري</div>
+  </div>
+
+  <div class="install-banner" id="installBanner">
+    <span>ثبّت التطبيق على شاشتك الرئيسية عشان تفتحه بسهولة</span>
+    <button id="installBtn">تثبيت</button>
+  </div>
+
+  <!-- Soldiers panel -->
+  <div class="panel">
+    <button class="panel-toggle" id="soldiersToggle">
+      <span class="label">العساكر <span class="count" id="soldiersCount">(0)</span></span>
+      <span class="chevron" id="soldiersChevron">+</span>
+    </button>
+    <div class="panel-body hidden" id="soldiersBody">
+      <div class="row">
+        <input id="newSoldierName" placeholder="اسم عسكري جديد">
+        <button class="btn btn-olive" onclick="addSoldier()">إضافة</button>
+      </div>
+      <div id="soldiersList"></div>
+    </div>
+  </div>
+
+  <!-- Orders panel -->
+  <div class="panel">
+    <div class="orders-head">
+      <span class="label" style="font-family:var(--f-display); font-size:16px; font-weight:800;">
+        الطلبات <span class="count" id="ordersCount">(0)</span>
+      </span>
+      <button class="btn btn-amber" onclick="openPicker()">+ إضافة طلب</button>
+    </div>
+    <div id="ordersList"></div>
+    <div class="empty-msg" id="ordersEmpty">لسه مفيش طلبات مضافة</div>
+  </div>
+
+  <!-- Summary panel -->
+  <div class="panel">
+    <div class="summary-title">الحساب الكلي</div>
+    <div class="field">
+      <label>مجموع سعر الأكل (تكتبه انت يدوي)</label>
+      <input type="number" id="foodTotal" oninput="renderSummary()">
+    </div>
+    <div class="summary-row"><span>💰 مجموع اللي دفعوه العساكر</span><span class="val" id="sumPaid">0.00 ج</span></div>
+    <div class="summary-row"><span>🧾 مجموع سعر الأكل</span><span class="val" id="sumOwed">0.00 ج</span></div>
+    <div class="summary-row" style="border-bottom:none;"><span>مجموع البواقي</span><span class="val" id="sumRemaining">0.00 ج</span></div>
+    <button class="btn-finish" id="finishBtn" onclick="finishRound()">✅ خالص - قفل الحسبة دي وابدأ مرة جديدة</button>
+  </div>
+
+  <div class="footer-note">البيانات بتتحفظ تلقائيًا على الجهاز ده</div>
+</div>
+
+<!-- Picker sheet -->
+<div class="sheet-overlay hidden" id="pickerOverlay" onclick="closePicker(event)">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">اختار العسكري</div>
+    <div id="pickerOptions"></div>
+  </div>
+</div>
+
+<script>
+const K_SOLDIERS = "foodorder_soldiers";
+const K_ORDERS = "foodorder_orders";
+const K_TOTAL = "foodorder_total";
+
+let state = { soldiers: [], orders: [], foodTotal: "" };
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function esc(s){
+  if(!s) return "";
+  return s.replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+function loadState(){
+  try{
+    const s = localStorage.getItem(K_SOLDIERS);
+    const o = localStorage.getItem(K_ORDERS);
+    const t = localStorage.getItem(K_TOTAL);
+    state.soldiers = s ? JSON.parse(s) : [];
+    state.orders = o ? JSON.parse(o) : [];
+    state.foodTotal = t || "";
+  }catch(e){}
+}
+function saveState(){
+  try{
+    localStorage.setItem(K_SOLDIERS, JSON.stringify(state.soldiers));
+    localStorage.setItem(K_ORDERS, JSON.stringify(state.orders));
+    localStorage.setItem(K_TOTAL, state.foodTotal || "");
+  }catch(e){}
+}
+
+// ---------- Soldiers ----------
+let soldiersOpen = false;
+document.getElementById('soldiersToggle').addEventListener('click', () => {
+  soldiersOpen = !soldiersOpen;
+  document.getElementById('soldiersBody').classList.toggle('hidden', !soldiersOpen);
+  document.getElementById('soldiersChevron').textContent = soldiersOpen ? '−' : '+';
+});
+
+function addSoldier(){
+  const input = document.getElementById('newSoldierName');
+  const name = input.value.trim();
+  if(!name) return;
+  state.soldiers.push({id: uid(), name});
+  input.value = '';
+  saveState();
+  renderSoldiers();
+  renderPickerOptions();
+}
+function startEditSoldier(id){
+  renderSoldiers(id);
+}
+function saveEditSoldier(id, value){
+  const name = value.trim();
+  if(!name) return;
+  const s = state.soldiers.find(x=>x.id===id);
+  if(s) s.name = name;
+  state.orders.forEach(o=>{ if(o.soldierId===id) o.soldierName = name; });
+  saveState();
+  renderSoldiers();
+  renderOrders();
+  renderPickerOptions();
+}
+function deleteSoldier(id){
+  state.soldiers = state.soldiers.filter(s=>s.id!==id);
+  saveState();
+  renderSoldiers();
+  renderPickerOptions();
+}
+
+function renderSoldiers(editingId){
+  document.getElementById('soldiersCount').textContent = `(${state.soldiers.length})`;
+  const list = document.getElementById('soldiersList');
+  if(state.soldiers.length===0){
+    list.innerHTML = '<div class="empty-msg">لسه مفيش عساكر مضافين</div>';
+    return;
+  }
+  list.innerHTML = state.soldiers.map(s=>{
+    if(editingId===s.id){
+      return `
+      <div class="soldier-row">
+        <input value="${esc(s.name)}" id="editinput-${s.id}" onkeydown="if(event.key==='Enter') saveEditSoldier('${s.id}', this.value)">
+        <button class="btn-icon" style="color:var(--olive)" onclick="saveEditSoldier('${s.id}', document.getElementById('editinput-${s.id}').value)">✓</button>
+        <button class="btn-icon" style="color:var(--text-faint)" onclick="renderSoldiers()">✕</button>
+      </div>`;
+    }
+    return `
+    <div class="soldier-row">
+      <span class="name">${esc(s.name)}</span>
+      <button class="btn-icon" style="color:var(--text-mute)" onclick="startEditSoldier('${s.id}')">✎</button>
+      <button class="btn-icon" style="color:var(--red)" onclick="deleteSoldier('${s.id}')">🗑</button>
+    </div>`;
+  }).join('');
+  if(editingId){
+    const el = document.getElementById('editinput-'+editingId);
+    if(el){ el.focus(); el.select(); }
+  }
+}
+
+// ---------- Picker ----------
+function openPicker(){
+  renderPickerOptions();
+  document.getElementById('pickerOverlay').classList.remove('hidden');
+}
+function closePicker(e){
+  document.getElementById('pickerOverlay').classList.add('hidden');
+}
+function renderPickerOptions(){
+  const box = document.getElementById('pickerOptions');
+  if(state.soldiers.length===0){
+    box.innerHTML = '<div class="empty-msg">مفيش عساكر مضافين في القائمة</div>';
+    return;
+  }
+  box.innerHTML = state.soldiers.map(s=>`
+    <button class="sheet-option" onclick="pickSoldier('${s.id}')">${esc(s.name)}</button>
+  `).join('');
+}
+function pickSoldier(id){
+  addOrder(id);
+  document.getElementById('pickerOverlay').classList.add('hidden');
+}
+
+// ---------- Orders ----------
+function addOrder(soldierId){
+  const soldier = state.soldiers.find(s=>s.id===soldierId);
+  if(!soldier) return;
+  state.orders.unshift({id: uid(), soldierId: soldier.id, soldierName: soldier.name, item:'', owed:'', paid:'', settled:false});
+  saveState();
+  renderOrders();
+}
+function updateOrderField(id, field, value){
+  const o = state.orders.find(x=>x.id===id);
+  if(!o) return;
+  o[field] = value;
+  saveState();
+  renderOrderChip(id);
+  renderSummary();
+}
+function deleteOrder(id){
+  state.orders = state.orders.filter(o=>o.id!==id);
+  saveState();
+  renderOrders();
+}
+function toggleSettled(id){
+  const o = state.orders.find(x=>x.id===id);
+  if(!o) return;
+  o.settled = !o.settled;
+  saveState();
+  renderOrders();
+}
+
+function chipInfo(o){
+  const remaining = (parseFloat(o.paid)||0) - (parseFloat(o.owed)||0);
+  if(remaining>0) return {cls:'pos', text:`ليه باقي ${remaining.toFixed(2)} ج`};
+  if(remaining<0) return {cls:'neg', text:`عليه لسه ${Math.abs(remaining).toFixed(2)} ج`};
+  return {cls:'zero', text:'مظبوط، مفيش باقي'};
+}
+
+function renderOrders(){
+  document.getElementById('ordersCount').textContent = `(${state.orders.length})`;
+  const list = document.getElementById('ordersList');
+  const empty = document.getElementById('ordersEmpty');
+  if(state.orders.length===0){
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    renderSummary();
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = state.orders.map(o=>{
+    const chip = chipInfo(o);
+    return `
+    <div class="order-card ${o.settled?'settled':''}" id="ordercard-${o.id}">
+      <div class="order-top">
+        <span class="order-name">${esc(o.soldierName)}</span>
+        <div class="order-actions">
+          <button class="btn-settle ${o.settled?'done':''}" onclick="toggleSettled('${o.id}')">${o.settled?'✓ خلص':'خلصه'}</button>
+          <button class="btn-icon" style="color:var(--red)" onclick="deleteOrder('${o.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>الطلب</label>
+        <input type="text" value="${esc(o.item)}" placeholder="اكتب الطلب" onchange="updateOrderField('${o.id}','item',this.value)">
+      </div>
+      <div class="grid2">
+        <div class="field" style="margin-bottom:0;">
+          <label>عليه</label>
+          <input type="number" value="${o.owed}" onchange="updateOrderField('${o.id}','owed',this.value)">
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>دفع</label>
+          <input type="number" value="${o.paid}" onchange="updateOrderField('${o.id}','paid',this.value)">
+        </div>
+      </div>
+      <div class="chip ${chip.cls}" id="chip-${o.id}">${chip.text}</div>
+    </div>`;
+  }).join('');
+  renderSummary();
+}
+function renderOrderChip(id){
+  const o = state.orders.find(x=>x.id===id);
+  if(!o) return;
+  const chip = chipInfo(o);
+  const el = document.getElementById('chip-'+id);
+  if(el){ el.className = 'chip '+chip.cls; el.textContent = chip.text; }
+}
+
+// ---------- Summary ----------
+function renderSummary(){
+  const foodTotalInput = document.getElementById('foodTotal');
+  if(document.activeElement !== foodTotalInput){
+    foodTotalInput.value = state.foodTotal || '';
+  }
+  state.foodTotal = foodTotalInput.value;
+
+  const sumPaid = state.orders.reduce((a,o)=>a+(parseFloat(o.paid)||0),0);
+  const sumOwed = state.orders.reduce((a,o)=>a+(parseFloat(o.owed)||0),0);
+  const manualTotal = parseFloat(state.foodTotal) || 0;
+  const remaining = sumPaid - manualTotal;
+
+  document.getElementById('sumPaid').textContent = sumPaid.toFixed(2) + ' ج';
+  document.getElementById('sumOwed').textContent = sumOwed.toFixed(2) + ' ج';
+  const remEl = document.getElementById('sumRemaining');
+  remEl.textContent = remaining.toFixed(2) + ' ج';
+  remEl.style.color = remaining>0 ? 'var(--olive)' : (remaining<0 ? 'var(--red)' : 'var(--text-mute)');
+
+  saveState();
+}
+document.getElementById('foodTotal').addEventListener('input', renderSummary);
+
+// ---------- Finish ----------
+let finishArmed = false;
+let finishTimer = null;
+function finishRound(){
+  const btn = document.getElementById('finishBtn');
+  if(!finishArmed){
+    finishArmed = true;
+    btn.classList.add('armed');
+    btn.textContent = '⚠️ متأكد؟ دوس تاني للتأكيد';
+    finishTimer = setTimeout(()=>{
+      finishArmed = false;
+      btn.classList.remove('armed');
+      btn.textContent = '✅ خالص - قفل الحسبة دي وابدأ مرة جديدة';
+    }, 4000);
+    return;
+  }
+  clearTimeout(finishTimer);
+  finishArmed = false;
+  btn.classList.remove('armed');
+  btn.textContent = '✅ خالص - قفل الحسبة دي وابدأ مرة جديدة';
+
+  state.orders = [];
+  state.foodTotal = '';
+  document.getElementById('foodTotal').value = '';
+  saveState();
+  renderOrders();
+}
+
+// ---------- Init ----------
+function init(){
+  loadState();
+  renderSoldiers();
+  renderOrders();
+  renderSummary();
+}
+init();
+
+// ---------- PWA: service worker + install prompt ----------
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.remove('show');
+});
+</script>
+</body>
+</html>
