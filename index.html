@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>حساب طلبات العساكر</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12161c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="طلبات العساكر">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@700;800;900&family=Tajawal:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#12161c;
+    --panel:#1a2028;
+    --panel-alt:#20272f;
+    --border:#2b333d;
+    --border-light:#3a4552;
+    --amber:#c68a3f;
+    --amber-soft:#c68a3f22;
+    --olive:#6b7d54;
+    --olive-soft:#6b7d5433;
+    --red:#b6543f;
+    --red-soft:#b6543f22;
+    --text:#eae6db;
+    --text-mute:#93a0ac;
+    --text-faint:#5f6b78;
+    --f-display:'Cairo', sans-serif;
+    --f-body:'Tajawal', sans-serif;
+    --f-mono:'JetBrains Mono', monospace;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--f-body);
+    padding:22px 16px 60px;
+    padding-top:calc(22px + env(safe-area-inset-top));
+    padding-bottom:calc(60px + env(safe-area-inset-bottom));
+    min-height:100vh;
+  }
+  .wrap{max-width:520px; margin:0 auto;}
+
+  .header{margin-bottom:18px;}
+  .header .title{font-family:var(--f-display); font-weight:900; font-size:22px; color:var(--amber); letter-spacing:0.3px;}
+  .header .subtitle{font-family:var(--f-body); font-size:13px; color:var(--text-faint); margin-top:2px;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px;}
+
+  .panel-toggle{
+    width:100%; display:flex; justify-content:space-between; align-items:center;
+    background:transparent; border:none; cursor:pointer; padding:0; color:var(--text);
+  }
+  .panel-toggle .label{font-family:var(--f-display); font-size:16px; font-weight:800; color:var(--text);}
+  .panel-toggle .count{font-family:var(--f-mono); color:var(--text-faint); font-weight:400; font-size:13px;}
+  .panel-toggle .chevron{color:var(--text-mute); font-size:18px;}
+
+  .panel-body{
+    margin-top:14px; max-height:2000px; opacity:1; overflow:hidden;
+    transition:max-height 0.35s ease, opacity 0.25s ease, margin-top 0.3s ease;
+  }
+  .panel-body.hidden{max-height:0; opacity:0; margin-top:0; pointer-events:none;}
+
+  .row{display:flex; gap:8px; margin-bottom:12px;}
+  input, select{
+    background:var(--panel-alt); border:1px solid var(--border); color:var(--text);
+    border-radius:10px; padding:10px 12px; font-size:14px; width:100%; outline:none;
+    font-family:var(--f-body);
+  }
+  input:focus{border-color:var(--amber);}
+  input[type=number]{font-family:var(--f-mono);}
+  input:disabled{opacity:0.55; cursor:not-allowed;}
+
+  @keyframes cardIn{
+    from{opacity:0; transform:translateY(10px) scale(0.98);}
+    to{opacity:1; transform:translateY(0) scale(1);}
+  }
+  @keyframes chipIn{
+    from{opacity:0; transform:scale(0.85);}
+    to{opacity:1; transform:scale(1);}
+  }
+  .btn, .btn-icon, .btn-amber, .btn-olive, .btn-settle, .btn-finish, .btn-delete-batch,
+  .batch-chip, .batch-chip-add, .panel-toggle{
+    transition:transform 0.15s ease, background 0.15s ease, color 0.15s ease, opacity 0.2s ease, border-color 0.15s ease;
+  }
+  .btn:active, .btn-icon:active, .btn-amber:active, .btn-olive:active, .btn-settle:active,
+  .btn-finish:active, .btn-delete-batch:active, .batch-chip:active, .batch-chip-add:active{
+    transform:scale(0.94);
+  }
+
+  .btn{border:none; border-radius:10px; cursor:pointer; font-family:var(--f-display); font-weight:800;}
+  .btn-olive{background:var(--olive); color:#0e150d; padding:0 18px; font-size:14px; white-space:nowrap;}
+  .btn-amber{background:var(--amber); color:#1c1204; padding:8px 16px; font-size:13.5px;}
+  .btn-icon{background:transparent; border:none; cursor:pointer; font-size:15px; padding:4px 6px; line-height:1; font-family:var(--f-body);}
+
+  .empty-msg{color:var(--text-faint); font-family:var(--f-body); font-size:13.5px; text-align:center; padding:14px 0;}
+
+  .soldier-row{
+    display:flex; align-items:center; gap:8px; padding:9px 10px; border-radius:10px;
+    background:var(--panel-alt); border:1px solid var(--border); margin-bottom:6px;
+    animation:cardIn 0.3s ease; transition:opacity 0.25s ease, transform 0.25s ease, max-height 0.25s ease;
+  }
+  .soldier-row.removing{opacity:0; transform:translateX(14px) scale(0.96);}
+  .soldier-row .name{flex:1; font-family:var(--f-body); font-size:14.5px; color:var(--text); font-weight:600;}
+  .soldier-row input{flex:1; padding:7px 10px; border-radius:8px; border:1px solid var(--amber); background:var(--panel);}
+
+  /* Batch tabs */
+  .batch-scroll{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:4px; -webkit-overflow-scrolling:touch;}
+  .batch-scroll::-webkit-scrollbar{height:4px;}
+  .batch-scroll::-webkit-scrollbar-thumb{background:var(--border-light); border-radius:4px;}
+  .batch-chip{
+    display:flex; align-items:center; gap:6px; flex-shrink:0;
+    background:var(--panel-alt); border:1px solid var(--border); border-radius:20px;
+    padding:8px 14px; cursor:pointer; font-family:var(--f-body); font-size:13.5px; font-weight:700; color:var(--text-mute);
+    white-space:nowrap; animation:chipIn 0.25s ease;
+  }
+  .batch-chip.active{background:var(--amber-soft); border-color:var(--amber); color:var(--amber);}
+  .batch-chip-add{
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+    background:transparent; border:1px dashed var(--border-light); border-radius:20px;
+    padding:8px 14px; cursor:pointer; font-family:var(--f-display); font-size:13.5px; font-weight:800; color:var(--text-faint);
+    white-space:nowrap;
+  }
+  .batch-add-row{display:none; gap:8px; margin-top:10px;}
+  .batch-add-row.show{display:flex;}
+  .batch-hint{font-family:var(--f-body); font-size:11.5px; color:var(--text-faint); margin-bottom:10px;}
+
+  .current-batch-actions{
+    display:none; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:14px; padding-top:12px; border-top:1px solid var(--border);
+  }
+  .current-batch-label{font-family:var(--f-body); font-size:12.5px; color:var(--text-faint);}
+  .current-batch-label b{color:var(--amber); font-family:var(--f-display);}
+  .current-batch-label-wrap{display:flex; align-items:center; gap:6px; flex:1; min-width:0;}
+  .current-batch-label-wrap input{
+    flex:1; min-width:0; padding:6px 9px; border-radius:8px; font-size:13px;
+    border:1px solid var(--amber); background:var(--panel);
+  }
+  .btn-delete-batch{
+    background:transparent; border:1px solid var(--red); color:var(--red);
+    border-radius:9px; padding:7px 12px; font-family:var(--f-body); font-weight:700;
+    font-size:12px; cursor:pointer; white-space:nowrap; transition:background 0.15s, color 0.15s;
+  }
+  .btn-delete-batch.armed{background:var(--red); color:#fff;}
+
+  .orders-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+
+  .order-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:14px; margin-bottom:12px; animation:cardIn 0.3s ease;
+    transition:opacity 0.3s ease, border-color 0.3s ease, transform 0.25s ease, max-height 0.25s ease;
+  }
+  .order-card.settled{opacity:0.6; border-color:var(--olive);}
+  .order-card.removing{opacity:0; transform:translateX(14px) scale(0.96);}
+  .order-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+  .order-name{font-family:var(--f-display); font-size:16px; font-weight:800; color:var(--amber);}
+  .order-actions{display:flex; gap:6px;}
+  .btn-settle{
+    font-size:11.5px; font-family:var(--f-body); font-weight:700; border-radius:8px;
+    padding:6px 10px; cursor:pointer; white-space:nowrap; border:1px solid var(--border);
+    background:transparent; color:var(--text-faint);
+  }
+  .btn-settle.done{background:var(--olive-soft); color:var(--olive); border-color:var(--olive);}
+
+  .field{margin-bottom:8px;}
+  .field label{font-family:var(--f-body); font-size:11.5px; color:var(--text-faint); display:block; margin-bottom:4px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;}
+
+  .chip{
+    text-align:center; padding:8px; border-radius:9px; font-family:var(--f-body);
+    font-size:13.5px; font-weight:700;
+  }
+  .chip.pos{background:var(--olive-soft); color:var(--olive); border:1px solid var(--olive);}
+  .chip.neg{background:var(--red-soft); color:var(--red); border:1px solid var(--red);}
+  .chip.zero{background:var(--panel-alt); color:var(--text-faint); border:1px solid var(--border);}
+
+  .summary-title{font-family:var(--f-display); font-size:16px; font-weight:800; color:var(--text); margin-bottom:2px;}
+  .summary-batchname{font-family:var(--f-body); font-size:12px; color:var(--amber); margin-bottom:12px;}
+  .summary-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 2px; border-bottom:1px dashed var(--border); font-size:13.5px; color:var(--text-mute);
+  }
+  .summary-row .val{font-family:var(--f-mono); font-size:15px; font-weight:700; color:var(--text);}
+
+  .btn-finish{
+    width:100%; margin-top:10px; padding:13px; border-radius:10px; border:none;
+    background:var(--amber); color:#1c1204; font-family:var(--f-display); font-weight:800;
+    font-size:15px; cursor:pointer; transition:background 0.15s;
+  }
+  .btn-finish.armed{background:var(--red); color:#fff;}
+
+  .footer-note{text-align:center; color:var(--text-faint); font-family:var(--f-mono); font-size:11px; margin-top:20px;}
+
+  /* Picker sheet */
+  .sheet-overlay{
+    position:fixed; inset:0; background:#00000099; z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+    opacity:0; transition:opacity 0.25s ease;
+  }
+  .sheet-overlay.hidden{display:none; opacity:0;}
+  .sheet{
+    background:var(--panel); border-top:1px solid var(--border-light);
+    border-radius:18px 18px 0 0; width:100%; max-width:480px;
+    max-height:70vh; overflow-y:auto; padding:0 16px 28px;
+    box-shadow:0 -8px 30px #00000066;
+    transform:translateY(100%);
+    transition:transform 0.3s cubic-bezier(.32,.72,0,1);
+  }
+  .sheet-handle-hitarea{
+    padding:16px 40px 10px; margin:0 -16px 4px; display:flex; justify-content:center;
+    touch-action:none; cursor:grab; position:sticky; top:0; background:var(--panel); z-index:2;
+    border-radius:18px 18px 0 0;
+  }
+  .sheet-handle-hitarea:active{cursor:grabbing;}
+  .sheet-handle{width:40px; height:4px; background:var(--border-light); border-radius:4px;}
+  .sheet-title{font-family:var(--f-display); font-weight:700; font-size:16px; color:var(--text); margin-bottom:12px; text-align:center;}
+  .sheet-option{
+    width:100%; text-align:right; padding:12px 14px; margin-bottom:6px;
+    border-radius:10px; border:1px solid var(--border); background:transparent; color:var(--text);
+    font-family:var(--f-body); font-size:15px; font-weight:600; cursor:pointer; display:block;
+    animation:cardIn 0.25s ease;
+  }
+
+  .install-banner{
+    display:none; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--amber-soft); border:1px solid var(--amber); border-radius:12px;
+    padding:10px 12px; margin-bottom:16px; font-family:var(--f-body); font-size:13px; color:var(--text);
+  }
+  .install-banner.show{display:flex;}
+  .install-banner button{background:var(--amber); color:#1c1204; border:none; border-radius:8px; padding:7px 12px; font-family:var(--f-display); font-weight:800; font-size:12.5px; cursor:pointer; white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="title">حساب طلبات الأكل</div>
+    <div class="subtitle">تتبّع طلبات وحسابات العساكر مع الديلفري</div>
+  </div>
+
+  <div class="install-banner" id="installBanner">
+    <span>ثبّت التطبيق على شاشتك الرئيسية عشان تفتحه بسهولة</span>
+    <button id="installBtn">تثبيت</button>
+  </div>
+
+  <!-- Soldiers panel -->
+  <div class="panel">
+    <button class="panel-toggle" id="soldiersToggle">
+      <span class="label">العساكر <span class="count" id="soldiersCount">(0)</span></span>
+      <span class="chevron" id="soldiersChevron">+</span>
+    </button>
+    <div class="panel-body hidden" id="soldiersBody">
+      <div class="row">
+        <input id="newSoldierName" placeholder="اسم عسكري جديد">
+        <button class="btn btn-olive" onclick="addSoldier()">إضافة</button>
+      </div>
+      <div id="soldiersList"></div>
+    </div>
+  </div>
+
+  <!-- Batches panel -->
+  <div class="panel">
+    <div class="orders-head">
+      <span class="label" style="font-family:var(--f-display); font-size:16px; font-weight:800;">🗂️ الطلبات</span>
+    </div>
+    <div class="batch-hint">كل طلب ليه حسابه الخاص، منفصل تمامًا عن باقي الطلبات</div>
+    <div class="batch-scroll" id="batchScroll"></div>
+    <div class="batch-add-row" id="batchAddRow">
+      <input id="newBatchName" placeholder="اسم الطلب">
+      <button class="btn btn-amber" onclick="confirmAddBatch()">إضافة</button>
+    </div>
+    <div class="current-batch-actions" id="currentBatchActions">
+      <div class="current-batch-label-wrap" id="currentBatchLabelWrap"></div>
+      <button class="btn-delete-batch" id="deleteBatchBtn" onclick="requestDeleteBatch()">🗑 حذف الطلب ده</button>
+    </div>
+  </div>
+
+  <!-- Orders panel -->
+  <div class="panel">
+    <div class="orders-head">
+      <span class="label" style="font-family:var(--f-display); font-size:16px; font-weight:800;">
+        الطلبات <span class="count" id="ordersCount">(0)</span>
+      </span>
+      <button class="btn btn-amber" onclick="openPicker()">+ إضافة طلب</button>
+    </div>
+    <div id="ordersList"></div>
+    <div class="empty-msg" id="ordersEmpty">لسه مفيش طلبات مضافة</div>
+  </div>
+
+  <!-- Summary panel -->
+  <div class="panel">
+    <div class="summary-title">الحساب الكلي</div>
+    <div class="summary-batchname" id="summaryBatchName"></div>
+    <div class="field">
+      <label>مجموع سعر الأكل (تكتبه انت يدوي - للمراجعة فقط)</label>
+      <input type="number" id="foodTotal" oninput="renderSummary()">
+    </div>
+    <div class="summary-row"><span>💰 مجموع اللي دفعوه العساكر</span><span class="val" id="sumPaid">0.00 ج</span></div>
+    <div class="summary-row"><span>🧾 مجموع سعر الأكل</span><span class="val" id="sumOwed">0.00 ج</span></div>
+    <div class="summary-row"><span>مجموع البواقي (المستحق لهم)</span><span class="val" id="sumRemaining">0.00 ج</span></div>
+    <div class="summary-row" style="border-bottom:none;"><span>💵 مجموع اللي هيدفعلك فلوس</span><span class="val" id="sumOwedToYou">0.00 ج</span></div>
+    <button class="btn-finish" id="finishBtn" onclick="finishRound()">✅ خالص - قفل حساب الطلب ده وابدأ من جديد</button>
+  </div>
+
+  <div class="footer-note">البيانات بتتحفظ تلقائيًا على الجهاز ده</div>
+</div>
+
+<!-- Picker sheet -->
+<div class="sheet-overlay hidden" id="pickerOverlay" onclick="closePicker(event)">
+  <div class="sheet" id="pickerSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle-hitarea" id="pickerSheetHandle"><div class="sheet-handle"></div></div>
+    <div class="sheet-title">اختار العسكري</div>
+    <div id="pickerOptions"></div>
+  </div>
+</div>
+
+<script>
+const K_SOLDIERS = "foodorder_soldiers";
+const K_BATCHES = "foodorder_batches_v2";
+const K_CURRENT = "foodorder_current_batch_v2";
+// مفاتيح النسخة القديمة (طلب واحد بس) - بنستخدمها للترحيل التلقائي لو موجودة
+const OLD_K_ORDERS = "foodorder_orders";
+const OLD_K_TOTAL = "foodorder_total";
+
+let state = { soldiers: [], batches: [], currentBatchId: '' };
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function esc(s){
+  if(!s) return "";
+  return s.replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+function loadState(){
+  try{
+    const s = localStorage.getItem(K_SOLDIERS);
+    state.soldiers = s ? JSON.parse(s) : [];
+  }catch(e){ state.soldiers = []; }
+
+  try{
+    const b = localStorage.getItem(K_BATCHES);
+    const c = localStorage.getItem(K_CURRENT);
+    if(b){
+      state.batches = JSON.parse(b);
+      state.currentBatchId = c || (state.batches[0] && state.batches[0].id) || '';
+    } else {
+      // ترحيل تلقائي من النسخة القديمة (طلب واحد) لو موجودة
+      let migratedOrders = [];
+      let migratedTotal = '';
+      try{
+        const oldOrders = localStorage.getItem(OLD_K_ORDERS);
+        const oldTotal = localStorage.getItem(OLD_K_TOTAL);
+        if(oldOrders) migratedOrders = JSON.parse(oldOrders);
+        if(oldTotal) migratedTotal = oldTotal;
+      }catch(e){}
+      state.batches = [{ id: uid(), name: 'طلب 1', orders: migratedOrders, foodTotal: migratedTotal }];
+      state.currentBatchId = state.batches[0].id;
+    }
+  }catch(e){
+    state.batches = [{ id: uid(), name: 'طلب 1', orders: [], foodTotal: '' }];
+    state.currentBatchId = state.batches[0].id;
+  }
+
+  if(!state.batches || state.batches.length===0){
+    state.batches = [{ id: uid(), name: 'طلب 1', orders: [], foodTotal: '' }];
+    state.currentBatchId = state.batches[0].id;
+  }
+  if(!state.batches.find(b=>b.id===state.currentBatchId)){
+    state.currentBatchId = state.batches[0].id;
+  }
+}
+function saveState(){
+  try{
+    localStorage.setItem(K_SOLDIERS, JSON.stringify(state.soldiers));
+    localStorage.setItem(K_BATCHES, JSON.stringify(state.batches));
+    localStorage.setItem(K_CURRENT, state.currentBatchId);
+  }catch(e){}
+}
+
+function getCurrentBatch(){
+  return state.batches.find(b=>b.id===state.currentBatchId) || state.batches[0];
+}
+
+// ---------- Soldiers ----------
+let soldiersOpen = false;
+document.getElementById('soldiersToggle').addEventListener('click', () => {
+  soldiersOpen = !soldiersOpen;
+  document.getElementById('soldiersBody').classList.toggle('hidden', !soldiersOpen);
+  document.getElementById('soldiersChevron').textContent = soldiersOpen ? '−' : '+';
+});
+
+function addSoldier(){
+  const input = document.getElementById('newSoldierName');
+  const name = input.value.trim();
+  if(!name) return;
+  state.soldiers.push({id: uid(), name});
+  input.value = '';
+  saveState();
+  renderSoldiers();
+  renderPickerOptions();
+}
+function startEditSoldier(id){
+  renderSoldiers(id);
+}
+function saveEditSoldier(id, value){
+  const name = value.trim();
+  if(!name) return;
+  const s = state.soldiers.find(x=>x.id===id);
+  if(s) s.name = name;
+  state.batches.forEach(b=>{
+    b.orders.forEach(o=>{ if(o.soldierId===id) o.soldierName = name; });
+  });
+  saveState();
+  renderSoldiers();
+  renderOrders();
+  renderPickerOptions();
+}
+function deleteSoldier(id){
+  const row = document.getElementById('soldierrow-'+id);
+  const finish = () => {
+    state.soldiers = state.soldiers.filter(s=>s.id!==id);
+    saveState();
+    renderSoldiers();
+    renderPickerOptions();
+  };
+  if(row){
+    row.classList.add('removing');
+    setTimeout(finish, 220);
+  } else {
+    finish();
+  }
+}
+
+function renderSoldiers(editingId){
+  document.getElementById('soldiersCount').textContent = `(${state.soldiers.length})`;
+  const list = document.getElementById('soldiersList');
+  if(state.soldiers.length===0){
+    list.innerHTML = '<div class="empty-msg">لسه مفيش عساكر مضافين</div>';
+    return;
+  }
+  list.innerHTML = state.soldiers.map(s=>{
+    if(editingId===s.id){
+      return `
+      <div class="soldier-row" id="soldierrow-${s.id}">
+        <input value="${esc(s.name)}" id="editinput-${s.id}" onkeydown="if(event.key==='Enter') saveEditSoldier('${s.id}', this.value)">
+        <button class="btn-icon" style="color:var(--olive)" onclick="saveEditSoldier('${s.id}', document.getElementById('editinput-${s.id}').value)">✓</button>
+        <button class="btn-icon" style="color:var(--text-faint)" onclick="renderSoldiers()">✕</button>
+      </div>`;
+    }
+    return `
+    <div class="soldier-row" id="soldierrow-${s.id}">
+      <span class="name">${esc(s.name)}</span>
+      <button class="btn-icon" style="color:var(--text-mute)" onclick="startEditSoldier('${s.id}')">✎</button>
+      <button class="btn-icon" style="color:var(--red)" onclick="deleteSoldier('${s.id}')">🗑</button>
+    </div>`;
+  }).join('');
+  if(editingId){
+    const el = document.getElementById('editinput-'+editingId);
+    if(el){ el.focus(); el.select(); }
+  }
+}
+
+// ---------- Batches ----------
+function renderBatchTabs(){
+  const scroll = document.getElementById('batchScroll');
+  scroll.innerHTML = state.batches.map(b=>{
+    const active = b.id === state.currentBatchId;
+    return `
+    <div class="batch-chip ${active?'active':''}" onclick="selectBatch('${b.id}')">
+      <span>${esc(b.name)}</span>
+    </div>`;
+  }).join('') + `<div class="batch-chip-add" onclick="toggleBatchAddRow()">+ طلب جديد</div>`;
+
+  // صف "الطلب الحالي" ظاهر دايمًا (فيه زرار التعديل)، وزرار الحذف بس اللي بيختفي لو الطلب واحد
+  const actionsRow = document.getElementById('currentBatchActions');
+  actionsRow.style.display = 'flex';
+  const deleteBtn = document.getElementById('deleteBatchBtn');
+  deleteBtn.style.display = state.batches.length > 1 ? 'inline-block' : 'none';
+  batchNameEditing = false;
+  renderCurrentBatchNameArea();
+  resetDeleteBatchArm();
+}
+
+let batchNameEditing = false;
+function renderCurrentBatchNameArea(){
+  const batch = getCurrentBatch();
+  const wrap = document.getElementById('currentBatchLabelWrap');
+  if(!wrap) return;
+  if(batchNameEditing){
+    wrap.innerHTML = `
+      <input type="text" id="editBatchNameInput" value="${esc(batch.name)}" onkeydown="if(event.key==='Enter') saveBatchName()">
+      <button class="btn-icon" style="color:var(--olive)" onclick="saveBatchName()">✓</button>
+      <button class="btn-icon" style="color:var(--text-faint)" onclick="cancelEditBatchName()">✕</button>
+    `;
+    const el = document.getElementById('editBatchNameInput');
+    if(el){ el.focus(); el.select(); }
+  } else {
+    wrap.innerHTML = `
+      <span class="current-batch-label">الطلب الحالي: <b>${esc(batch.name)}</b></span>
+      <button class="btn-icon" style="color:var(--text-mute)" onclick="startEditBatchName()">✎</button>
+    `;
+  }
+}
+function startEditBatchName(){
+  batchNameEditing = true;
+  renderCurrentBatchNameArea();
+}
+function cancelEditBatchName(){
+  batchNameEditing = false;
+  renderCurrentBatchNameArea();
+}
+function saveBatchName(){
+  const input = document.getElementById('editBatchNameInput');
+  const name = input.value.trim();
+  if(name){
+    const batch = getCurrentBatch();
+    batch.name = name;
+    saveState();
+  }
+  batchNameEditing = false;
+  renderBatchTabs();
+  renderSummary();
+}
+
+function toggleBatchAddRow(){
+  const row = document.getElementById('batchAddRow');
+  row.classList.toggle('show');
+  if(row.classList.contains('show')){
+    document.getElementById('newBatchName').focus();
+  }
+}
+function confirmAddBatch(){
+  const input = document.getElementById('newBatchName');
+  const name = input.value.trim() || `طلب ${state.batches.length+1}`;
+  const batch = { id: uid(), name, orders: [], foodTotal: '' };
+  state.batches.push(batch);
+  state.currentBatchId = batch.id;
+  input.value = '';
+  document.getElementById('batchAddRow').classList.remove('show');
+  saveState();
+  renderBatchTabs();
+  renderOrders();
+}
+function selectBatch(id){
+  state.currentBatchId = id;
+  saveState();
+  renderBatchTabs();
+  renderOrders();
+}
+let deleteBatchArmed = false;
+let deleteBatchTimer = null;
+function resetDeleteBatchArm(){
+  deleteBatchArmed = false;
+  clearTimeout(deleteBatchTimer);
+  const btn = document.getElementById('deleteBatchBtn');
+  if(btn){
+    btn.classList.remove('armed');
+    btn.textContent = '🗑 حذف الطلب ده';
+  }
+}
+function requestDeleteBatch(){
+  if(state.batches.length <= 1) return;
+  const btn = document.getElementById('deleteBatchBtn');
+  if(!deleteBatchArmed){
+    deleteBatchArmed = true;
+    btn.classList.add('armed');
+    btn.textContent = '⚠️ متأكد إنك عايز تحذف الطلب ده؟ دوس تاني للتأكيد';
+    deleteBatchTimer = setTimeout(()=> resetDeleteBatchArm(), 4000);
+    return;
+  }
+  clearTimeout(deleteBatchTimer);
+  const id = state.currentBatchId;
+  state.batches = state.batches.filter(b=>b.id!==id);
+  state.currentBatchId = state.batches[0].id;
+  deleteBatchArmed = false;
+  saveState();
+  renderBatchTabs();
+  renderOrders();
+}
+
+// ---------- Picker (with body-scroll lock + drag-to-dismiss) ----------
+let bodyScrollY = 0;
+function lockBodyScroll(){
+  bodyScrollY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.position = 'fixed';
+  document.body.style.top = `-${bodyScrollY}px`;
+  document.body.style.left = '0';
+  document.body.style.right = '0';
+  document.body.style.width = '100%';
+}
+function unlockBodyScroll(){
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, bodyScrollY);
+}
+
+function openPicker(){
+  renderPickerOptions();
+  const overlay = document.getElementById('pickerOverlay');
+  const sheet = document.getElementById('pickerSheet');
+  overlay.classList.remove('hidden');
+  lockBodyScroll();
+  sheet.style.transform = 'translateY(100%)';
+  overlay.style.opacity = '0';
+  void sheet.offsetHeight; // إجبار المتصفح يطبق القيمة الأولية قبل الأنيميشن
+  requestAnimationFrame(()=>{
+    sheet.style.transform = 'translateY(0)';
+    overlay.style.opacity = '1';
+  });
+}
+function closePicker(e){
+  if(e && e.target && e.target.id !== 'pickerOverlay') return;
+  const overlay = document.getElementById('pickerOverlay');
+  const sheet = document.getElementById('pickerSheet');
+  sheet.style.transform = 'translateY(100%)';
+  overlay.style.opacity = '0';
+  setTimeout(()=>{
+    overlay.classList.add('hidden');
+    unlockBodyScroll();
+  }, 300);
+}
+function pickSoldier(id){
+  addOrder(id);
+  const overlay = document.getElementById('pickerOverlay');
+  const sheet = document.getElementById('pickerSheet');
+  sheet.style.transform = 'translateY(100%)';
+  overlay.style.opacity = '0';
+  setTimeout(()=>{
+    overlay.classList.add('hidden');
+    unlockBodyScroll();
+  }, 300);
+}
+function renderPickerOptions(){
+  const box = document.getElementById('pickerOptions');
+  if(state.soldiers.length===0){
+    box.innerHTML = '<div class="empty-msg">مفيش عساكر مضافين في القائمة</div>';
+    return;
+  }
+  box.innerHTML = state.soldiers.map(s=>`
+    <button class="sheet-option" onclick="pickSoldier('${s.id}')">${esc(s.name)}</button>
+  `).join('');
+}
+
+// سحب "الشريط" اللي فوق الشيت لقفلها بحركة اليد
+function initSheetDrag(){
+  const handle = document.getElementById('pickerSheetHandle');
+  const sheet = document.getElementById('pickerSheet');
+  const overlay = document.getElementById('pickerOverlay');
+  let startY = 0, currentDelta = 0, dragging = false;
+
+  handle.addEventListener('pointerdown', (e)=>{
+    dragging = true;
+    startY = e.clientY;
+    sheet.style.transition = 'none';
+    overlay.style.transition = 'none';
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  handle.addEventListener('pointermove', (e)=>{
+    if(!dragging) return;
+    let delta = e.clientY - startY;
+    if(delta < 0) delta = 0;
+    currentDelta = delta;
+    sheet.style.transform = `translateY(${delta}px)`;
+    overlay.style.opacity = String(Math.max(0, 1 - delta/300));
+  });
+  function endDrag(){
+    if(!dragging) return;
+    dragging = false;
+    sheet.style.transition = '';
+    overlay.style.transition = '';
+    if(currentDelta > 110){
+      sheet.style.transform = 'translateY(100%)';
+      overlay.style.opacity = '0';
+      setTimeout(()=>{
+        overlay.classList.add('hidden');
+        unlockBodyScroll();
+      }, 300);
+    } else {
+      sheet.style.transform = 'translateY(0)';
+      overlay.style.opacity = '1';
+    }
+    currentDelta = 0;
+  }
+  handle.addEventListener('pointerup', endDrag);
+  handle.addEventListener('pointercancel', endDrag);
+}
+
+// ---------- Orders (scoped to current batch) ----------
+function addOrder(soldierId){
+  const soldier = state.soldiers.find(s=>s.id===soldierId);
+  if(!soldier) return;
+  const batch = getCurrentBatch();
+  batch.orders.unshift({id: uid(), soldierId: soldier.id, soldierName: soldier.name, item:'', owed:'', paid:'', settled:false});
+  saveState();
+  renderOrders();
+}
+function updateOrderField(id, field, value){
+  const batch = getCurrentBatch();
+  const o = batch.orders.find(x=>x.id===id);
+  if(!o) return;
+  o[field] = value;
+  saveState();
+  renderOrderChip(id);
+  renderSummary();
+}
+function deleteOrder(id){
+  const card = document.getElementById('ordercard-'+id);
+  const finish = () => {
+    const batch = getCurrentBatch();
+    batch.orders = batch.orders.filter(o=>o.id!==id);
+    saveState();
+    renderOrders();
+  };
+  if(card){
+    card.classList.add('removing');
+    setTimeout(finish, 220);
+  } else {
+    finish();
+  }
+}
+function toggleSettled(id){
+  const batch = getCurrentBatch();
+  const o = batch.orders.find(x=>x.id===id);
+  if(!o) return;
+  o.settled = !o.settled;
+  saveState();
+  renderOrders();
+}
+
+function chipInfo(o){
+  const remaining = (parseFloat(o.paid)||0) - (parseFloat(o.owed)||0);
+  if(remaining>0) return {cls:'pos', text:`ليه باقي ${remaining.toFixed(2)} ج`};
+  if(remaining<0) return {cls:'neg', text:`عليه لسه ${Math.abs(remaining).toFixed(2)} ج`};
+  return {cls:'zero', text:'مظبوط، مفيش باقي'};
+}
+
+function renderOrders(){
+  renderBatchTabs();
+  const batch = getCurrentBatch();
+  document.getElementById('ordersCount').textContent = `(${batch.orders.length})`;
+  const list = document.getElementById('ordersList');
+  const empty = document.getElementById('ordersEmpty');
+  if(batch.orders.length===0){
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    renderSummary();
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = batch.orders.map(o=>{
+    const chip = chipInfo(o);
+    const dis = o.settled ? 'disabled' : '';
+    return `
+    <div class="order-card ${o.settled?'settled':''}" id="ordercard-${o.id}">
+      <div class="order-top">
+        <span class="order-name">${esc(o.soldierName)}</span>
+        <div class="order-actions">
+          <button class="btn-settle ${o.settled?'done':''}" onclick="toggleSettled('${o.id}')">${o.settled?'✓ خلص':'خلصه'}</button>
+          <button class="btn-icon" style="color:var(--red)" onclick="deleteOrder('${o.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>الطلب</label>
+        <input type="text" value="${esc(o.item)}" placeholder="اكتب الطلب" onchange="updateOrderField('${o.id}','item',this.value)" ${dis}>
+      </div>
+      <div class="grid2">
+        <div class="field" style="margin-bottom:0;">
+          <label>عليه</label>
+          <input type="number" value="${o.owed}" onchange="updateOrderField('${o.id}','owed',this.value)" ${dis}>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>دفع</label>
+          <input type="number" value="${o.paid}" onchange="updateOrderField('${o.id}','paid',this.value)" ${dis}>
+        </div>
+      </div>
+      <div class="chip ${chip.cls}" id="chip-${o.id}">${chip.text}</div>
+      ${o.settled ? '<div style="text-align:center; margin-top:6px; font-family:var(--f-body); font-size:11px; color:var(--text-faint);">🔒 الطلب دا اتقفل، دوس "خلص" تاني لو عايز تعدله</div>' : ''}
+    </div>`;
+  }).join('');
+  renderSummary();
+}
+function renderOrderChip(id){
+  const batch = getCurrentBatch();
+  const o = batch.orders.find(x=>x.id===id);
+  if(!o) return;
+  const chip = chipInfo(o);
+  const el = document.getElementById('chip-'+id);
+  if(el){ el.className = 'chip '+chip.cls; el.textContent = chip.text; }
+}
+
+// ---------- Summary (scoped to current batch) ----------
+function renderSummary(){
+  const batch = getCurrentBatch();
+  document.getElementById('summaryBatchName').textContent = '— ' + batch.name;
+
+  const foodTotalInput = document.getElementById('foodTotal');
+  if(document.activeElement !== foodTotalInput){
+    foodTotalInput.value = batch.foodTotal || '';
+  }
+  batch.foodTotal = foodTotalInput.value;
+
+  // مجموع اللي دفعوه العساكر:
+  // - الطلب اللي لسه مش "خلص": بنحسب كل الفلوس اللي العسكري دفعها فعليًا
+  // - الطلب اللي "خلص": معناها إن الباقي اترجعله، فبيتحسب بس اللي عليه (سعر الأكل) مش كل اللي دفعه
+  const sumPaid = batch.orders.reduce((a,o)=>{
+    return a + (o.settled ? (parseFloat(o.owed)||0) : (parseFloat(o.paid)||0));
+  },0);
+  const sumOwed = batch.orders.reduce((a,o)=>a+(parseFloat(o.owed)||0),0);
+
+  // مجموع البواقي والفلوس المطلوب تحصيلها بيتحسبوا بس من الطلبات اللي لسه مش "خلصت"
+  let creditTotal = 0;   // له باقي (لازم ترجعله فلوس)
+  let owedToYouTotal = 0; // عليه لسه (لازم يدفعلك فلوس)
+  batch.orders.forEach(o=>{
+    if(o.settled) return;
+    const remaining = (parseFloat(o.paid)||0) - (parseFloat(o.owed)||0);
+    if(remaining > 0) creditTotal += remaining;
+    else if(remaining < 0) owedToYouTotal += Math.abs(remaining);
+  });
+
+  document.getElementById('sumPaid').textContent = sumPaid.toFixed(2) + ' ج';
+  document.getElementById('sumOwed').textContent = sumOwed.toFixed(2) + ' ج';
+
+  const remEl = document.getElementById('sumRemaining');
+  remEl.textContent = creditTotal.toFixed(2) + ' ج';
+  remEl.style.color = creditTotal>0 ? 'var(--olive)' : 'var(--text-mute)';
+
+  const owedEl = document.getElementById('sumOwedToYou');
+  owedEl.textContent = owedToYouTotal.toFixed(2) + ' ج';
+  owedEl.style.color = owedToYouTotal>0 ? 'var(--red)' : 'var(--text-mute)';
+
+  saveState();
+}
+document.getElementById('foodTotal').addEventListener('input', renderSummary);
+
+// ---------- Finish (يحذف الطلب الحالي فعليًا) ----------
+let finishArmed = false;
+let finishTimer = null;
+function finishRound(){
+  const btn = document.getElementById('finishBtn');
+  if(!finishArmed){
+    finishArmed = true;
+    btn.classList.add('armed');
+    btn.textContent = '⚠️ متأكد؟ دوس تاني للتأكيد';
+    finishTimer = setTimeout(()=>{
+      finishArmed = false;
+      btn.classList.remove('armed');
+      btn.textContent = '✅ خالص - قفل حساب الطلب ده وابدأ من جديد';
+    }, 4000);
+    return;
+  }
+  clearTimeout(finishTimer);
+  finishArmed = false;
+  btn.classList.remove('armed');
+  btn.textContent = '✅ خالص - قفل حساب الطلب ده وابدأ من جديد';
+
+  if(state.batches.length > 1){
+    // فيه طلبات تانية، فبنحذف الطلب الحالي خالص من القايمة
+    const id = state.currentBatchId;
+    state.batches = state.batches.filter(b=>b.id!==id);
+    state.currentBatchId = state.batches[0].id;
+  } else {
+    // ده آخر طلب موجود، متقدرش تمسحه خالص، بس بيتفضى بدل ما يتمسح
+    const batch = getCurrentBatch();
+    batch.orders = [];
+    batch.foodTotal = '';
+    document.getElementById('foodTotal').value = '';
+  }
+
+  saveState();
+  renderBatchTabs();
+  renderOrders();
+}
+
+// ---------- Init ----------
+function init(){
+  loadState();
+  renderSoldiers();
+  renderBatchTabs();
+  renderOrders();
+  renderSummary();
+  initSheetDrag();
+}
+init();
+
+// ---------- PWA: service worker + install prompt ----------
+if('serviceWorker' in navigator && location.protocol !== 'file:'){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.remove('show');
+});
+</script>
+</body>
+</html>
